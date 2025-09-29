@@ -221,18 +221,20 @@ if __name__ == "__main__":
     N = int(T/dt)
 
     # ---- Option A: single trajectory (quick test)
-    #x0 = [0.5, 0.0]
-    #traj = simulate_traj(x0, N, dt, dyn=f_duffing, delta=delta, alpha=alpha, beta=beta)
-    #X, Xnext = build_one_step_pairs(traj)
-
+    """
+    x0 = [0.5, 0.0]
+    traj = simulate_traj(x0, N, dt, dyn=f_duffing, delta=delta, alpha=alpha, beta=beta)
+    X, Xnext = build_one_step_pairs(traj)
+    """
     # ---- Option B: multiple trajectories (recommended)
+    
     ics = [[-0.8, 0.0], [-0.3, 0.1], [0.3, 0.0], [0.8, -0.05], [0.0, 0.2]]
     pairs = []
     for x0 in ics:
         tr = simulate_traj(x0, N, dt, dyn=f_duffing, delta=delta, alpha=alpha, beta=beta)
         pairs.append(build_one_step_pairs(tr))
     X, Xnext = stack_pairs(pairs)
-
+    
     print("Shapes:", X.shape, Xnext.shape)
 
     # Fit & evaluate
