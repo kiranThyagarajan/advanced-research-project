@@ -41,6 +41,12 @@ def build_one_step_pairs(traj):
     Xnext = traj[1:].T   # shape (2, N)
     return X, Xnext
 
+def stack_pairs(pair_list):
+    """Stack multiple (X, Xnext) pairs column-wise."""
+    X_all     = np.hstack([p[0] for p in pair_list])
+    Xnext_all = np.hstack([p[1] for p in pair_list])
+    return X_all, Xnext_all
+
 # ----------------------------
 # 5) Observables (hand-picked, physics-informed)
 # ----------------------------
@@ -196,14 +202,25 @@ if __name__ == "__main__":
     T       = 120.0             # total time (s)
     N       = int(T/dt)         # number of steps
 
-    # Initial condition
+    # ---------- Option A: single trajectory ----------
     x0 = [0.9, 0.0]             # theta (rad), omega (rad/s)
-
-    # Simulate
     traj = simulate_traj(x0, N, dt, dyn=f_pendulum, g=g, L=L, c=c)
-
-    # Build Koopman pairs
     X, Xnext = build_one_step_pairs(traj)
+
+    # ---------- Option B: multiple trajectories ----------
+    """
+    ics = [
+        [0.9, 0.0],
+        [1.5, -0.2],
+        [-1.0, 0.1],
+        [0.5, 0.3],
+    ]
+    pairs = []
+    for x0 in ics:
+        traj = simulate_traj(x0, N, dt, dyn=f_pendulum, g=g, L=L, c=c)
+        pairs.append(build_one_step_pairs(traj))
+    X, Xnext = stack_pairs(pairs)
+    """
     print("Shapes:", X.shape, Xnext.shape)
 
     # Fit Koopman and evaluate
