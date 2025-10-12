@@ -191,6 +191,17 @@ def show_figures_duffing(X, K, mu, std, dt=0.01, horizon_steps=200):
     plt.xlabel("time (s)"); plt.ylabel("v"); plt.legend()
     plt.title("Duffing velocity: true vs. Koopman (multi-step)")
 
+    # Phase portrait (x–v plane)
+    plt.figure()
+    plt.plot(x_true_ms, v_true_ms, label="True trajectory", linewidth=2)
+    plt.plot(x_hat, v_hat, '--', label="Koopman trajectory", linewidth=2)
+    plt.xlabel("x (position)")
+    plt.ylabel("v (velocity)")
+    plt.title("Duffing oscillator: phase portrait (x–v plane)")
+    plt.axis('equal')
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.legend()
+
     # Error growth
     H = min(horizon_steps, Phi_te.shape[1]-1)
     rmse_x, rmse_v = [], []
