@@ -165,62 +165,182 @@ def train_and_eval_duffing(X, Xnext, lam=1e-5, horizon_steps=200):
 # =========================
 # 8) Plots (show)
 # =========================
-def show_figures_duffing(X, K, mu, std, dt=0.01, horizon_steps=200):
-    N = X.shape[1]
-    idx_split = int(0.7 * N)
-    X_te  = X[:, idx_split:]
-    Phi_te     = phi_from_X_duffing(X_te)
-    Phi_te_std = standardize_apply(Phi_te, mu, std)
-    Phi0_std   = Phi_te_std[:, 0]
+def show_figures_duffing(
+    X, K, mu, std,
+    dt=0.01,
+    horizon_steps=200,
+    multi_traj=False,
+    traj_list=None  
+):
+    """
+    Visualize Duffing Koopman predictions.
 
-    # Truth vs Koopman rollout
-    x_hat, v_hat = rollout_and_decode_duffing(K, Phi0_std, steps=horizon_steps, mu=mu, std=std)
-    x_true_ms = Phi_te[1, :horizon_steps+1]
-    v_true_ms = Phi_te[4, :horizon_steps+1]
-    t = np.arange(horizon_steps+1) * dt
+    Parameters
+    ----------
+    X : array, shape (2, N)
+        Stacked state data.
+    K : array
+        Learned Koopman operator.
+    mu, std : arrays
+        Standardization statistics.
+    dt : float
+        Time step.
+    horizon_steps : int
+        Prediction horizon for rollouts.
+    multi_traj : bool
+        If True, overlay results for all trajectories (needs traj_list).
+        If False, shows single test segment (original behavior).
+    traj_list : list of arrays, optional
+        Each trajectory array of shape (N_i+1, 2).
+    """
+
+    # ========================
+    # SINGLE-TRAJECTORY MODE
+    # ========================
+    if not multi_traj or traj_list is None:
+        N = X.shape[1]
+        idx_split = int(0.7 * N)
+        X_te = X[:, idx_split:]
+        Phi_te = phi_from_X_duffing(X_te)
+        Phi_te_std = standardize_apply(Phi_te, mu, std)
+        Phi0_std = Phi_te_std[:, 0]
+
+        # Truth vs Koopman rollout
+        x_hat, v_hat = rollout_and_decode_duffing(K, Phi0_std, steps=horizon_steps, mu=mu, std=std)
+        x_true_ms = Phi_te[1, :horizon_steps+1]
+        v_true_ms = Phi_te[4, :horizon_steps+1]
+        t = np.arange(horizon_steps+1) * dt
+
+        plt.figure()
+        plt.plot(t, x_true_ms, label="x true")
+        plt.plot(t, x_hat, "--", label="x Koopman")
+        plt.xlabel("time (s)"); plt.ylabel("x"); plt.legend()
+        plt.title("Duffing position: true vs Koopman (multi-step)")
+
+        plt.figure()
+        plt.plot(t, v_true_ms, label="v true")
+        plt.plot(t, v_hat, "--", label="v Koopman")
+        plt.xlabel("time (s)"); plt.ylabel("v"); plt.legend()
+        plt.title("Duffing velocity: true vs Koopman (multi-step)")
+
+        # Phase portrait (x–v plane)
+        plt.figure()
+        plt.plot(x_true_ms, v_true_ms, label="True trajectory", linewidth=2)
+        plt.plot(x_hat, v_hat, '--', label="Koopman trajectory", linewidth=2)
+        plt.xlabel("x (position)")
+        plt.ylabel("v (velocity)")
+        plt.title("Duffing oscillator: phase portrait (x–v plane)")
+        plt.axis('equal')
+        plt.grid(True, linestyle='--', alpha=0.6)
+        plt.legend()
+
+        # Error growth
+        H = min(horizon_steps, Phi_te.shape[1]-1)
+        rmse_x, rmse_v = [], []
+        for h in range(1, H+1):
+            xh, vh = rollout_and_decode_duffing(K, Phi0_std, steps=h, mu=mu, std=std)
+            x_true_h = Phi_te[1, :h+1]
+            v_true_h = Phi_te[4, :h+1]
+            rmse_x.append(np.sqrt(np.mean((xh - x_true_h)**2)))
+            rmse_v.append(np.sqrt(np.mean((vh - v_true_h)**2)))
+
+        horizons = np.arange(1, H+1)*dt
+        plt.figure()
+        plt.plot(horizons, rmse_x, label="RMSE x")
+        plt.plot(horizons, rmse_v, label="RMSE v")
+        plt.xlabel("prediction horizon (s)"); plt.ylabel("RMSE")
+        plt.title("Duffing: error growth over horizon")
+        plt.legend()
+
+        plt.show()
+        return  # early exit
+
+    # ========================
+    # MULTI-TRAJECTORY MODE
+    # ========================
+    Phi_list = []
+    for tr in traj_list:
+        Xi = tr.T
+        Phi_i = phi_from_X_duffing(Xi)
+        Phi_i_std = standardize_apply(Phi_i, mu, std)
+        Phi_list.append((Phi_i, Phi_i_std))
+
+    # --- 1) x(t) and v(t) for all trajectories
+    plt.figure()
+    plt.title("Duffing position: true vs Koopman (multi-step, all trajectories)")
+    plt.xlabel("time (s)"); plt.ylabel("x")
+    for i, (Phi_i, Phi_i_std) in enumerate(Phi_list):
+        T_i = Phi_i.shape[1]
+        H_i = min(horizon_steps, T_i-1)
+        Phi0_std = Phi_i_std[:, 0]
+        x_hat, _ = rollout_and_decode_duffing(K, Phi0_std, steps=H_i, mu=mu, std=std)
+        x_true = Phi_i[1, :H_i+1]
+        t = np.arange(H_i+1)*dt
+        plt.plot(t, x_true, label=f"True traj {i+1}" if i<5 else None)
+        plt.plot(t, x_hat, "--", label=f"Koopman traj {i+1}" if i<5 else None)
+    plt.legend(ncol=2, fontsize=9); plt.grid(True, linestyle='--', alpha=0.5)
 
     plt.figure()
-    plt.plot(t, x_true_ms, label="x true")
-    plt.plot(t, x_hat, "--", label="x Koopman")
-    plt.xlabel("time (s)"); plt.ylabel("x"); plt.legend()
-    plt.title("Duffing position: true vs. Koopman (multi-step)")
+    plt.title("Duffing velocity: true vs Koopman (multi-step, all trajectories)")
+    plt.xlabel("time (s)"); plt.ylabel("v")
+    for i, (Phi_i, Phi_i_std) in enumerate(Phi_list):
+        T_i = Phi_i.shape[1]
+        H_i = min(horizon_steps, T_i-1)
+        Phi0_std = Phi_i_std[:, 0]
+        _, v_hat = rollout_and_decode_duffing(K, Phi0_std, steps=H_i, mu=mu, std=std)
+        v_true = Phi_i[4, :H_i+1]
+        t = np.arange(H_i+1)*dt
+        plt.plot(t, v_true, label=f"True traj {i+1}" if i<5 else None)
+        plt.plot(t, v_hat, "--", label=f"Koopman traj {i+1}" if i<5 else None)
+    plt.legend(ncol=2, fontsize=9); plt.grid(True, linestyle='--', alpha=0.5)
 
+    # --- 2) Phase portrait
     plt.figure()
-    plt.plot(t, v_true_ms, label="v true")
-    plt.plot(t, v_hat, "--", label="v Koopman")
-    plt.xlabel("time (s)"); plt.ylabel("v"); plt.legend()
-    plt.title("Duffing velocity: true vs. Koopman (multi-step)")
+    plt.title("Duffing phase portrait (x–v): true vs Koopman (all trajectories)")
+    plt.xlabel("x"); plt.ylabel("v")
+    for i, (Phi_i, Phi_i_std) in enumerate(Phi_list):
+        T_i = Phi_i.shape[1]
+        H_i = min(horizon_steps, T_i-1)
+        Phi0_std = Phi_i_std[:, 0]
+        x_hat, v_hat = rollout_and_decode_duffing(K, Phi0_std, steps=H_i, mu=mu, std=std)
+        x_true = Phi_i[1, :H_i+1]
+        v_true = Phi_i[4, :H_i+1]
+        plt.plot(x_true, v_true, label=f"True traj {i+1}" if i<5 else None)
+        plt.plot(x_hat, v_hat, "--", label=f"Koopman traj {i+1}" if i<5 else None)
+    plt.axis('equal'); plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(ncol=2, fontsize=9)
 
-    # Phase portrait (x–v plane)
+    # --- 3) Error growth (averaged)
+    rmse_x_curves, rmse_v_curves = [], []
+    for (Phi_i, Phi_i_std) in Phi_list:
+        T_i = Phi_i.shape[1]
+        H_i = min(horizon_steps, T_i-1)
+        Phi0_std = Phi_i_std[:, 0]
+        rx, rv = [], []
+        for h in range(1, H_i+1):
+            xh, vh = rollout_and_decode_duffing(K, Phi0_std, steps=h, mu=mu, std=std)
+            x_true_h = Phi_i[1, :h+1]
+            v_true_h = Phi_i[4, :h+1]
+            rx.append(np.sqrt(np.mean((xh - x_true_h)**2)))
+            rv.append(np.sqrt(np.mean((vh - v_true_h)**2)))
+        rmse_x_curves.append(np.array(rx))
+        rmse_v_curves.append(np.array(rv))
+
+    H_min = min(len(r) for r in rmse_x_curves)
+    horizons = np.arange(1, H_min+1) * dt
     plt.figure()
-    plt.plot(x_true_ms, v_true_ms, label="True trajectory", linewidth=2)
-    plt.plot(x_hat, v_hat, '--', label="Koopman trajectory", linewidth=2)
-    plt.xlabel("x (position)")
-    plt.ylabel("v (velocity)")
-    plt.title("Duffing oscillator: phase portrait (x–v plane)")
-    plt.axis('equal')
-    plt.grid(True, linestyle='--', alpha=0.6)
-    plt.legend()
-
-    # Error growth
-    H = min(horizon_steps, Phi_te.shape[1]-1)
-    rmse_x, rmse_v = [], []
-    for h in range(1, H+1):
-        xh, vh = rollout_and_decode_duffing(K, Phi0_std, steps=h, mu=mu, std=std)
-        x_true_h = Phi_te[1, :h+1]
-        v_true_h = Phi_te[4, :h+1]
-        rmse_x.append(np.sqrt(np.mean((xh - x_true_h)**2)))
-        rmse_v.append(np.sqrt(np.mean((vh - v_true_h)**2)))
-
-    horizons = np.arange(1, H+1)*dt
-    plt.figure()
-    plt.plot(horizons, rmse_x, label="RMSE x")
-    plt.plot(horizons, rmse_v, label="RMSE v")
+    for r in rmse_x_curves:
+        plt.plot(horizons, r[:H_min], alpha=0.4)
+    for r in rmse_v_curves:
+        plt.plot(horizons, r[:H_min], alpha=0.25)
+    plt.plot(horizons, np.mean([r[:H_min] for r in rmse_x_curves], axis=0), 'k', linewidth=2, label="Mean RMSE x")
+    plt.plot(horizons, np.mean([r[:H_min] for r in rmse_v_curves], axis=0), 'r', linewidth=2, label="Mean RMSE v")
     plt.xlabel("prediction horizon (s)"); plt.ylabel("RMSE")
-    plt.title("Duffing: error growth over horizon")
-    plt.legend()
+    plt.title("Duffing: error growth over horizon (mean across trajectories)")
+    plt.legend(); plt.grid(True, linestyle='--', alpha=0.5)
 
     plt.show()
+
 
 # =========================
 # 9) Example usage
@@ -229,30 +349,47 @@ if __name__ == "__main__":
     # Duffing parameters (double well)
     delta, alpha, beta = 0.2, -1.0, 1.0
     dt, T = 0.01, 120.0
-    N = int(T/dt)
+    N = int(T / dt)
 
     # ---- Option A: single trajectory (quick test)
     """
     x0 = [0.5, 0.0]
-    traj = simulate_traj(x0, N, dt, dyn=f_duffing, delta=delta, alpha=alpha, beta=beta)
+    traj = simulate_traj(x0, N, dt, dyn=f_duffing,
+                         delta=delta, alpha=alpha, beta=beta)
     X, Xnext = build_one_step_pairs(traj)
+    traj_list = [traj]  # keep for plotting if desired
     """
+
     # ---- Option B: multiple trajectories (recommended)
     
-    ics = [[-0.8, 0.0], [-0.3, 0.1], [0.3, 0.0], [0.8, -0.05], [0.0, 0.2]]
+    ics = [[-0.8, 0.0], [-0.3, 0.1], [0.3, 0.0],
+           [0.8, -0.05], [0.0, 0.2]]
+
+    traj_list = []
     pairs = []
     for x0 in ics:
-        tr = simulate_traj(x0, N, dt, dyn=f_duffing, delta=delta, alpha=alpha, beta=beta)
+        tr = simulate_traj(x0, N, dt, dyn=f_duffing,
+                           delta=delta, alpha=alpha, beta=beta)
+        traj_list.append(tr)
         pairs.append(build_one_step_pairs(tr))
+
+    # Stack all (current,next) pairs across trajectories
     X, Xnext = stack_pairs(pairs)
-    
     print("Shapes:", X.shape, Xnext.shape)
 
-    # Fit & evaluate
+    # Fit & evaluate Koopman operator
     K, metrics, (mu, std, idx_split) = train_and_eval_duffing(
         X, Xnext, lam=1e-5, horizon_steps=200
     )
-    print("Koopman metrics (Duffing, improved):", metrics)
+    print("Koopman metrics (Duffing):", metrics)
 
-    # Show figures
-    show_figures_duffing(X, K, mu, std, dt=dt, horizon_steps=200)
+    # ---- Option 1: single test segment (quick check)
+    # show_figures_duffing(X, K, mu, std, dt=dt, horizon_steps=200)
+
+    # ---- Option 2: multi-trajectory evaluation (recommended)
+    show_figures_duffing(X, K, mu, std,
+                         dt=dt,
+                         horizon_steps=200,
+                         multi_traj=True, # True / False
+                         traj_list=traj_list) # None / traj_list
+
