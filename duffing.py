@@ -443,10 +443,10 @@ def show_figures_duffing(
 if __name__ == "__main__":
     # Duffing parameters (double well)
     delta, alpha, beta = 0.2, -1.0, 1.0
-    dt, T = 0.1, 120.0
+    dt, T = 0.01, 120.0
     N = int(T / dt)
-    p_max = 11   # polynomial degree
-    lam   = 0.01 * (0.007721017256866056 ** 2) #1e-4
+    p_max = 15   # polynomial degree
+    lam   = 0.01 * (0.016038318250232386 ** 2) #1e-4
 
     # ---- Option A: single trajectory (quick test)
     """
@@ -459,7 +459,43 @@ if __name__ == "__main__":
 
     # ---- Option B: multiple trajectories (recommended)
     ics = [[-0.7, 0.0], [-0.3, 0.1], [0.3, 0.0],
-           [0.8, -0.05], [1.0, 0.2]]   #[0.0, 0.2]
+            [0.8, -0.05], [1.0, 0.2]]   #[0.0, 0.2]
+    
+    """
+    # Left-well ICs (x ≈ -1)
+    icl = [
+        [-1.2, 0.1],
+        [-1.0, 0.05],
+        [-0.8, -0.05],
+    ]
+
+    # Right-well ICs (x ≈ +1)
+    icr = [
+        [0.8, 0.05],
+        [1.0, -0.05],
+        [1.2, -0.1],
+    ]
+
+    # Center-region ICs (near unstable saddle, nonzero velocity)
+    icc = [
+        [0.0, 0.2],   # the problematic IC
+        [0.15,  0.15],
+        [-0.15, 0.15],
+    ]
+
+    # Near-saddle ICs with zero velocity (v = 0)
+    icv = [
+        [-0.4, 0.0],
+        [-0.2, 0.0],
+        [ 0.4, 0.0],
+    ]
+
+    # Final list of initial conditions
+    ics = icl + icr + icc + icv
+
+    print("Number of ICs:", len(ics))
+    print("IC list:", ics)
+    """
 
     traj_list = []
     pairs = []
