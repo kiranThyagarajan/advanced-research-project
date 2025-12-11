@@ -374,7 +374,7 @@ def show_figures_pendulum(
         t = np.arange(H_i+1)*dt
         plt.plot(t, omega_true, label=f"True traj {i+1}" if i < 5 else None)
         plt.plot(t, omega_hat, "--", label=f"Koopman traj {i+1}" if i < 5 else None)
-    plt.legend(ncol=2, fontsize=9); plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(ncol=2, fontsize=5); plt.grid(True, linestyle='--', alpha=0.5)
 
     # --- 2) Phase portrait
     plt.figure()
@@ -436,7 +436,7 @@ def show_figures_pendulum(
 if __name__ == "__main__":
     # Pendulum physical parameters
     g, L, c = 9.81, 0.7, 0.08   # gravity, length, damping
-    dt, T = 0.01, 120.0
+    dt, T = 0.01, 300.0
     N = int(T / dt)
     lam = 1e-5          # ridge regularization
 
@@ -455,8 +455,11 @@ if __name__ == "__main__":
         [-1.0, 0.1],
         [0.5, 0.3],
         [1.0, -0.5],
-       # [1.5, -0.2],
-       # [2.0, -0.5]
+        [1.5, -0.2],
+        [2.0, -0.5],
+        [-1.5, 0.4],
+        [-2.0, 0.5],
+        [-1.9, -0.3]
     ]
 
     traj_list = []
